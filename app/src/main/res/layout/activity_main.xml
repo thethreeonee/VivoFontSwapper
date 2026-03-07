@@ -129,7 +129,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="请选择 .ttf/.otf 字体文件"
+                            android:text="请选择 .ttf 字体文件"
                             android:textColor="#313131"
                             android:textSize="12sp" />
                     </LinearLayout>

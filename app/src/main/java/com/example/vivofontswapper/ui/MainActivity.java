@@ -26,6 +26,8 @@ import com.example.vivofontswapper.util.FontSwapHelper;
 import com.example.vivofontswapper.util.RealPathUtil;
 import com.example.vivofontswapper.util.ShizukuUtils;
 
+import java.util.Locale;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final int SHIZUKU_REQUEST_CODE = 2001;
@@ -39,12 +41,12 @@ public class MainActivity extends AppCompatActivity {
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
                 if (uri != null) {
                     String realPath = RealPathUtil.getRealPath(this, uri);
-                    if (realPath != null && (realPath.endsWith(".ttf") || realPath.endsWith(".otf"))) {
+                    if (isSupportedFont(realPath)) {
                         viewModel.setSelectedFontPath(realPath);
                         binding.btnStart.setEnabled(true);
                         updateFontSelectionUi(realPath.substring(realPath.lastIndexOf('/') + 1));
                     } else {
-                        Toast.makeText(this, "请选择 .ttf 或 .otf 字体文件", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "请选择 .ttf 字体文件", Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -109,8 +111,14 @@ public class MainActivity extends AppCompatActivity {
         } else {
             binding.tvFontStatus.setText("NOT READY");
             binding.tvFontStatus.setBackgroundResource(R.drawable.pill_status_bg_not_ready);
-            binding.tvFontHint.setText("请选择 .ttf/.otf 字体文件");
+            binding.tvFontHint.setText("请选择 .ttf 字体文件");
         }
+    }
+
+    private boolean isSupportedFont(String path) {
+        if (path == null) return false;
+        String lowerPath = path.toLowerCase(Locale.ROOT);
+        return lowerPath.endsWith(".ttf");
     }
 
     private void startFontSwap() {
@@ -193,10 +201,10 @@ public class MainActivity extends AppCompatActivity {
                         "本 App 用于简化 vivo 字体替换流程\n\n" +
                         "【前置条件】\n" +
                         "1. 已安装并启动 Shizuku\n" +
-                        "2. 准备一个可用的 .ttf/.otf 字体文件\n" +
+                        "2. 准备一个可用的 .ttf 字体文件\n" +
                         "3. 首次执行会自动释放并安装内置的指定版本 APK\n\n" +
                         "【操作步骤】\n" +
-                        "1. 点击“选择字体”选择 .ttf/.otf 文件\n" +
+                        "1. 点击“选择字体”选择 .ttf 文件\n" +
                         "2. 点击“开始执行”，先获取 Shizuku 授权\n" +
                         "3. 自动卸载当前 vivo文档 / i主题，并安装指定版本\n" +
                         "4. 自动拉起 i主题下载“我是一个假黑体”，返回后继续执行\n" +

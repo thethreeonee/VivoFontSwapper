@@ -72,12 +72,9 @@ public class MainActivity extends AppCompatActivity {
     private void setupObservers() {
         viewModel.getSteps().observe(this, steps -> stepAdapter.setSteps(steps));
 
-        viewModel.getStatusMessage().observe(this, msg -> binding.tvStatus.setText(msg));
-
         viewModel.getIsRunning().observe(this, running -> {
             binding.btnStart.setEnabled(!running && viewModel.getSelectedFontPath() != null);
             binding.btnSelectFont.setEnabled(!running);
-            binding.progressMain.setVisibility(running ? View.VISIBLE : View.GONE);
         });
 
         viewModel.getAllDone().observe(this, done -> {
@@ -92,13 +89,19 @@ public class MainActivity extends AppCompatActivity {
 
         binding.btnStart.setEnabled(false);
         binding.btnStart.setOnClickListener(v -> startFontSwap());
-
-        binding.btnReset.setOnClickListener(v -> {
-            viewModel.resetSteps();
-            binding.cardDone.setVisibility(View.GONE);
+        binding.toolbar.setOnMenuItemClickListener(item -> {
+            int itemId = item.getItemId();
+            if (itemId == R.id.action_reset) {
+                viewModel.resetSteps();
+                binding.cardDone.setVisibility(View.GONE);
+                return true;
+            }
+            if (itemId == R.id.action_help) {
+                showHelpDialog();
+                return true;
+            }
+            return false;
         });
-
-        binding.btnHelp.setOnClickListener(v -> showHelpDialog());
     }
 
     private void startFontSwap() {
@@ -178,7 +181,7 @@ public class MainActivity extends AppCompatActivity {
         new AlertDialog.Builder(this)
                 .setTitle("使用说明")
                 .setMessage(
-                        "本 App 用于简化 vivo 字体替换流程（基于你当前教程）\n\n" +
+                        "本 App 用于简化 vivo 字体替换流程\n\n" +
                         "【前置条件】\n" +
                         "1. 已安装并启动 Shizuku\n" +
                         "2. 准备一个可用的 .ttf/.otf 字体文件\n" +

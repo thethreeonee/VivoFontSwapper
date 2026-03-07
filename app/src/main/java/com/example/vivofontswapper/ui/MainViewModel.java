@@ -21,7 +21,7 @@ public class MainViewModel extends ViewModel {
     // 定义流程步骤
     private static final String[] STEP_TITLES = {
             "获取 Shizuku 授权",
-            "前置条件检查（Shizuku + 内置安装包）",
+            "前置条件检查",
             "卸载 vivo文档",
             "卸载 i主题",
             "安装 vivo文档 12.2.3",

@@ -4,7 +4,9 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F0F4F8">
+    android:background="@android:color/white"
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
     <!-- Top App Bar -->
     <com.google.android.material.appbar.AppBarLayout
@@ -15,8 +17,13 @@
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
-            android:background="@color/purple_700"
-            app:title="vivo 字体一键替换"
+            android:background="@color/purple_500"
+            app:contentInsetStart="0dp"
+            app:contentInsetStartWithNavigation="0dp"
+            app:itemIconTint="@color/white"
+            app:menu="@menu/main_toolbar_menu"
+            app:title="自定义字体"
+            app:titleMarginStart="0dp"
             app:titleTextColor="#FFFFFF"
             app:navigationIcon="@drawable/ic_font" />
     </com.google.android.material.appbar.AppBarLayout>
@@ -25,134 +32,80 @@
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="16dp"
+            android:paddingBottom="96dp">
 
-            <!-- Status Card -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Font Selection Section -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                app:cardElevation="4dp"
-                app:cardCornerRadius="12dp">
+                android:background="#00FFFFFF"
+                android:orientation="vertical"
+                android:padding="4dp">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:text="字体文件"
+                    android:textSize="12sp"
+                    android:textColor="#888888"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="当前状态"
-                        android:textSize="12sp"
-                        android:textColor="#888888"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.1" />
+                <TextView
+                    android:id="@+id/tv_font_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="未选择"
+                    android:textSize="15sp"
+                    android:textColor="#555555"
+                    android:layout_marginTop="4dp"
+                    android:layout_marginBottom="12dp" />
 
-                    <TextView
-                        android:id="@+id/tv_status"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="选择字体文件后点击开始"
-                        android:textSize="15sp"
-                        android:textColor="#333333"
-                        android:layout_marginTop="4dp" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_select_font"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="选择字体文件 (.ttf / .otf)"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            </LinearLayout>
 
-                    <ProgressBar
-                        android:id="@+id/progress_main"
-                        android:layout_width="match_parent"
-                        android:layout_height="8dp"
-                        style="@style/Widget.AppCompat.ProgressBar.Horizontal"
-                        android:indeterminate="true"
-                        android:visibility="gone"
-                        android:layout_marginTop="8dp" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Font Selection Card -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- Steps Section -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                app:cardElevation="4dp"
-                app:cardCornerRadius="12dp">
+                android:background="#00FFFFFF"
+                android:orientation="vertical"
+                android:padding="4dp">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:text="执行步骤"
+                    android:textSize="12sp"
+                    android:textColor="#888888"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="8dp" />
 
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="字体文件"
-                        android:textSize="12sp"
-                        android:textColor="#888888"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.1" />
-
-                    <TextView
-                        android:id="@+id/tv_font_name"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="未选择"
-                        android:textSize="15sp"
-                        android:textColor="#555555"
-                        android:layout_marginTop="4dp"
-                        android:layout_marginBottom="12dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btn_select_font"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:text="选择字体文件 (.ttf / .otf)"
-                        app:icon="@android:drawable/ic_menu_gallery"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- Steps RecyclerView -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="12dp"
-                app:cardElevation="4dp"
-                app:cardCornerRadius="12dp">
-
-                <LinearLayout
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rv_steps"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="12dp">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="执行步骤"
-                        android:textSize="12sp"
-                        android:textColor="#888888"
-                        android:textAllCaps="true"
-                        android:letterSpacing="0.1"
-                        android:layout_marginBottom="8dp" />
-
-                    <androidx.recyclerview.widget.RecyclerView
-                        android:id="@+id/rv_steps"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:nestedScrollingEnabled="false" />
-
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                    android:nestedScrollingEnabled="false" />
+            </LinearLayout>
 
             <!-- Done Card (hidden initially) -->
             <com.google.android.material.card.MaterialCardView
@@ -191,43 +144,19 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Action Buttons -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="24dp">
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_reset"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
-                    android:text="重置"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_help"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="8dp"
-                    android:text="使用说明"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_start"
-                    android:layout_width="0dp"
-                    android:layout_height="48dp"
-                    android:layout_weight="1.5"
-                    android:text="开始执行"
-                    android:enabled="false"
-                    app:backgroundTint="@color/purple_700" />
-
-            </LinearLayout>
-
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btn_start"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|end"
+        android:layout_margin="20dp"
+        android:contentDescription="开始执行"
+        android:enabled="false"
+        app:backgroundTint="@color/btn_start_background_tint"
+        app:srcCompat="@drawable/ic_play_arrow_24"
+        app:tint="@color/white" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

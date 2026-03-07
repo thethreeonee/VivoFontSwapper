@@ -183,7 +183,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="手机将在 3 秒后自动重启以应用字体"
+                        android:text="请在 i主题确认后手动重启手机"
                         android:textSize="14sp"
                         android:textColor="#388E3C"
                         android:layout_marginTop="8dp" />

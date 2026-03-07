@@ -20,16 +20,21 @@ public class MainViewModel extends ViewModel {
 
     // 定义流程步骤
     private static final String[] STEP_TITLES = {
-            "前置条件检查",
-            "检测 i主题 .itz 字体包",
-            "修改 fonts/ 条目（加空格）",
-            "清除旧 i主题字体缓存",
-            "触发密钥生成（vivo文档）",
-            "重新下载 i主题字体包",
-            "注入第三方字体进 .itz 包",
-            "修改 hmtx 字段激活字体",
-            "触发 i主题应用字体",
-            "重启手机"
+            "获取 Shizuku 授权",
+            "前置条件检查（Shizuku + 内置安装包）",
+            "卸载 vivo文档",
+            "卸载 i主题",
+            "安装 vivo文档 12.2.3",
+            "安装 i主题 12.1.5.1",
+            "拉起 i主题下载假黑体",
+            "检查假字体 .itz 包",
+            "注入字体到 .itz/fonts",
+            "写入 /data/vfonts 目标字体",
+            "修改 hmtx 后缀空格",
+            "拉起文档打开 .itz",
+            "拉起文档打开 /data/vfonts",
+            "再次拉起 i主题应用字体",
+            "完成（请手动重启）"
     };
 
     public MainViewModel() {
@@ -65,7 +70,7 @@ public class MainViewModel extends ViewModel {
     public void setAllDone() {
         allDone.postValue(true);
         isRunning.postValue(false);
-        statusMessage.postValue("✅ 全部完成！手机将在 3 秒后重启...");
+        statusMessage.postValue("✅ 全部完成，请到 i主题确认应用后手动重启手机");
     }
 
     public void setRunning(boolean running) {

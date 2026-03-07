@@ -1,52 +1,60 @@
 package com.example.vivofontswapper.util;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.util.Log;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 /**
- * vivo 自定义字体核心逻辑
- *
- * 对应手动教程步骤（不需要 ATools）：
- *  步骤 1-3  → 安装指定版本 APK（需用户提前下载好，或由 App 引导）
- *  步骤 4    → 打开 i主题，搜索"我是一个假黑体"并下载（自动化触发 i主题下载）
- *  步骤 5-6  → 用 root 修改 vivo文档内文件（在 fonts/ 后加空格，但不保存）
- *  步骤 7-9  → 删除字体 → 保存文件（触发密钥生成）
- *  步骤 10   → 再次下载字体
- *  步骤 11   → 用 root 将第三方字体复制进 .itz 包内，重命名为目标字体名
- *  步骤 12-13→ 触发 vivo文档打开 /data/vfonts/目标字体.ttf，在 hmtx 后加空格保存
- *  步骤 14   → 触发 i主题 应用字体
- *  步骤 15   → 重启手机
+ * vivo 字体替换流程助手
  */
 public class FontSwapHelper {
 
     private static final String TAG = "FontSwapHelper";
 
-    // 路径常量
-    public static final String ITZ_DATA_PATH =
+    private static final String ITZ_DATA_PATH =
             "/data/bbkcore/theme/.dwd/c/o/m/b/b/k/t/h/e/m/e/F/我是一个假黑体.itz";
-    public static final String ITZ_FONTS_DIR = ITZ_DATA_PATH + "/fonts/";
-    public static final String VFONTS_DIR = "/data/vfonts/";
-    public static final String SDCARD_ITZ_PATH =
+    private static final String SDCARD_ITZ_PATH =
             "/storage/emulated/0/.dwd/c/o/m/b/b/k/t/h/e/m/e/F/我是一个假黑体.itz";
-    public static final String TARGET_FONT_NAME = "我是一个假黑体.ttf";
+    private static final String VFONTS_DIR = "/data/vfonts/";
+    private static final String VFONTS_TARGET_NAME = "我是一个假黑体.ttf";
+    private static final String ITZ_FONT_ENTRY_NAME = "fonts/我是一个假字体.ttf";
 
-    // i主题包名
-    public static final String ITHEME_PKG = "com.bbk.theme";
-    // vivo文档包名（旧版）
-    public static final String VIVO_DOC_PKG = "com.yozo.vivo.txtreader";
+    private static final String ITHEME_PKG = "com.bbk.theme";
+    private static final String VIVO_DOC_PKG = "com.yozo.vivo.txtreader";
+    private static final String ITHEME_APK_ASSET = "apks/i_theme_12.1.5.1.apk";
+    private static final String VIVO_DOC_APK_ASSET = "apks/vivo_doc_12.2.3.apk";
+    private static final String EMBEDDED_APK_OUTPUT_DIR = "/storage/emulated/0/Download/VivoFontSwapper";
+    private static final String ITHEME_APK_FILE_NAME = "i_theme_12.1.5.1.apk";
+    private static final String VIVO_DOC_APK_FILE_NAME = "vivo_doc_12.2.3.apk";
 
     public interface StepCallback {
         void onStepStart(int step, String description);
+
         void onStepSuccess(int step, String detail);
+
         void onStepFailed(int step, String reason);
+
         void onAllDone();
     }
 
     private final Context context;
     private final StepCallback callback;
-    private String sourceFontPath; // 用户选择的 TTF 字体路径
+    private final String sourceFontPath;
+    private String iThemeApkPath;
+    private String vivoDocApkPath;
 
     public FontSwapHelper(Context context, String sourceFontPath, StepCallback callback) {
         this.context = context;
@@ -54,301 +62,395 @@ public class FontSwapHelper {
         this.callback = callback;
     }
 
-    /**
-     * 执行完整换字体流程（在子线程中调用）
-     */
     public void executeFullFlow() {
-        // 前置检查
-        if (!checkPrerequisites()) return;
-
-        // === 步骤 A：确保 .itz 文件存在（i主题已下载字体）===
-        if (!step_A_checkItzExists()) return;
-
-        // === 步骤 B：修改 .itz 内 fonts/ 目录（加空格触发密钥生成）===
-        if (!step_B_modifyFontsEntry()) return;
-
-        // === 步骤 C：删除 i主题字体（触发密钥失效）===
-        if (!step_C_deleteIThemeFont()) return;
-
-        // === 步骤 D：保存 vivo文档（生成新密钥）===
-        if (!step_D_saveVivoDoc()) return;
-
-        // === 步骤 E：重新下载 i主题字体 ===
-        if (!step_E_redownloadFont()) return;
-
-        // === 步骤 F：将第三方字体注入 .itz 包 ===
-        if (!step_F_injectFontIntoItz()) return;
-
-        // === 步骤 G：修改 /data/vfonts/ 内字体文件的 hmtx 字段 ===
-        if (!step_G_modifyVfontsHmtx()) return;
-
-        // === 步骤 H：应用字体 ===
-        if (!step_H_applyFont()) return;
-
-        // === 步骤 I：重启 ===
-        step_I_reboot();
+        if (!step0GetShizukuAuthorization()) return;
+        if (!step1CheckPrerequisites()) return;
+        if (!step2UninstallVivoDoc()) return;
+        if (!step3UninstallITheme()) return;
+        if (!step4InstallVivoDoc()) return;
+        if (!step5InstallITheme()) return;
+        if (!step6OpenThemeForDownload()) return;
+        if (!step7CheckItzExists()) return;
+        if (!step8InjectFontToItz()) return;
+        if (!step9WriteVfont()) return;
+        if (!step10PatchHmtx()) return;
+        if (!step11OpenItzInDoc()) return;
+        if (!step12OpenVfontInDoc()) return;
+        if (!step13OpenThemeForApply()) return;
+        step14Done();
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // 各步骤实现
-    // ──────────────────────────────────────────────────────────────
-
-    private boolean checkPrerequisites() {
-        callback.onStepStart(0, "检查前置条件（Root 权限 & 应用安装）");
-
-        if (!RootUtils.isRooted()) {
-            callback.onStepFailed(0, "设备未获得 Root 权限，无法继续。请先 Root 设备。");
+    private boolean step0GetShizukuAuthorization() {
+        callback.onStepStart(0, "获取 Shizuku 授权");
+        if (!ShizukuUtils.isShizukuAvailable()) {
+            callback.onStepFailed(0, "Shizuku 未运行，请先启动 Shizuku 后重试。");
             return false;
         }
-
-        if (!isPackageInstalled(ITHEME_PKG)) {
-            callback.onStepFailed(0, "未检测到 i主题 (com.bbk.theme)，请先安装 i主题 12.1.5.1 版本。");
+        if (!ShizukuUtils.hasPermission()) {
+            callback.onStepFailed(0, "尚未授予 Shizuku 权限。请先授权后重试。");
             return false;
         }
-
-        if (!isPackageInstalled(VIVO_DOC_PKG)) {
-            callback.onStepFailed(0, "未检测到 vivo文档，请先安装 vivo文档 12.2.3 版本。");
-            return false;
-        }
-
-        if (sourceFontPath == null || !new File(sourceFontPath).exists()) {
-            callback.onStepFailed(0, "未找到字体文件：" + sourceFontPath);
-            return false;
-        }
-
-        callback.onStepSuccess(0, "Root 已获取，i主题和 vivo文档均已安装。");
+        callback.onStepSuccess(0, "Shizuku 授权已就绪");
         return true;
     }
 
-    private boolean step_A_checkItzExists() {
-        callback.onStepStart(1, "检查 i主题 .itz 字体包是否存在");
+    private boolean step1CheckPrerequisites() {
+        callback.onStepStart(1, "前置条件检查并释放内置安装包");
+        if (!ShizukuUtils.hasPermission()) {
+            callback.onStepFailed(1, "Shizuku 权限已失效，请重新授权。");
+            return false;
+        }
+        if (sourceFontPath == null || !new File(sourceFontPath).exists()) {
+            callback.onStepFailed(1, "未找到字体文件：" + sourceFontPath);
+            return false;
+        }
+        if (!prepareEmbeddedApks()) {
+            return false;
+        }
+        callback.onStepSuccess(1, "前置条件检查通过");
+        return true;
+    }
 
-        // 检查 data 目录下的 itz（需要 root）
-        boolean existsData = RootUtils.exists(ITZ_DATA_PATH);
-        boolean existsSdcard = RootUtils.exists(SDCARD_ITZ_PATH);
+    private boolean step2UninstallVivoDoc() {
+        callback.onStepStart(2, "卸载当前 vivo文档");
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec("pm uninstall --user 0 " + VIVO_DOC_PKG);
+        if (result.isSuccess() || result.stdout.contains("Success") || result.stderr.contains("Unknown package")) {
+            callback.onStepSuccess(2, "vivo文档 卸载完成");
+            return true;
+        }
+        callback.onStepFailed(2, "卸载 vivo文档 失败：" + result.stderr);
+        return false;
+    }
 
-        if (!existsData && !existsSdcard) {
-            // 尝试打开 i主题让用户手动下载
-            callback.onStepFailed(1,
-                    "未找到 .itz 字体包。\n请在 i主题中搜索"我是一个假黑体"并点击下载（不要应用），然后重新运行本 App。");
+    private boolean step3UninstallITheme() {
+        callback.onStepStart(3, "卸载当前 i主题");
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec("pm uninstall --user 0 " + ITHEME_PKG);
+        if (result.isSuccess() || result.stdout.contains("Success") || result.stderr.contains("Unknown package")) {
+            callback.onStepSuccess(3, "i主题 卸载完成");
+            return true;
+        }
+        callback.onStepFailed(3, "卸载 i主题 失败：" + result.stderr);
+        return false;
+    }
+
+    private boolean step4InstallVivoDoc() {
+        callback.onStepStart(4, "安装 vivo文档 12.2.3");
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec(
+                "pm install -r -d \"" + vivoDocApkPath + "\"");
+        if (!result.isSuccess() && !result.stdout.contains("Success")) {
+            callback.onStepFailed(4, "安装 vivo文档 失败：" + result.stderr);
+            return false;
+        }
+        if (!isPackageInstalled(VIVO_DOC_PKG)) {
+            callback.onStepFailed(4, "vivo文档 安装后未检测到包名。");
+            return false;
+        }
+        callback.onStepSuccess(4, "vivo文档 12.2.3 安装完成");
+        return true;
+    }
+
+    private boolean step5InstallITheme() {
+        callback.onStepStart(5, "安装 i主题 12.1.5.1");
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec(
+                "pm install -r -d \"" + iThemeApkPath + "\"");
+        if (!result.isSuccess() && !result.stdout.contains("Success")) {
+            callback.onStepFailed(5, "安装 i主题 失败：" + result.stderr);
+            return false;
+        }
+        if (!isPackageInstalled(ITHEME_PKG)) {
+            callback.onStepFailed(5, "i主题 安装后未检测到包名。");
+            return false;
+        }
+        callback.onStepSuccess(5, "i主题 12.1.5.1 安装完成");
+        return true;
+    }
+
+    private boolean step6OpenThemeForDownload() {
+        callback.onStepStart(6, "拉起 i主题，下载“我是一个假黑体”");
+        if (!launchPackage(ITHEME_PKG)) {
+            callback.onStepFailed(6, "打开 i主题失败");
+            return false;
+        }
+        callback.onStepSuccess(6, "i主题已拉起；若尚未下载，请先下载后返回 App");
+        return true;
+    }
+
+    private boolean step7CheckItzExists() {
+        callback.onStepStart(7, "检查假字体 .itz 是否已下载到存储目录");
+        boolean existsSdcard = new File(SDCARD_ITZ_PATH).exists();
+        if (!existsSdcard) {
+            callback.onStepFailed(7,
+                    "未找到 .itz 文件：\n" + SDCARD_ITZ_PATH + "\n请先在 i主题下载“我是一个假黑体”后重试。");
             openIThemeForDownload();
             return false;
         }
-
-        callback.onStepSuccess(1, "找到 .itz 字体包：" + (existsData ? ITZ_DATA_PATH : SDCARD_ITZ_PATH));
+        callback.onStepSuccess(7, "找到 .itz 文件");
         return true;
     }
 
-    private boolean step_B_modifyFontsEntry() {
-        callback.onStepStart(2, "修改 .itz 包内 fonts/ 条目（加空格，触发密钥生成准备）");
+    private boolean step8InjectFontToItz() {
+        callback.onStepStart(8, "注入字体到 .itz 的 fonts 目录");
+        try {
+            boolean ok = replaceZipEntry(
+                    new File(SDCARD_ITZ_PATH),
+                    ITZ_FONT_ENTRY_NAME,
+                    new File(sourceFontPath));
+            if (!ok) {
+                callback.onStepFailed(8, "替换 .itz 内字体失败。");
+                return false;
+            }
+            callback.onStepSuccess(8, "已写入 " + ITZ_FONT_ENTRY_NAME);
+            return true;
+        } catch (Exception e) {
+            callback.onStepFailed(8, "替换 .itz 内字体失败：" + e.getMessage());
+            return false;
+        }
+    }
 
-        // .itz 本质是 zip，需要先解压修改再重新打包
-        // 这里用 root + python 直接操作字节流，在 fonts/ 后插入空格
-        // 注意：实际上这步对应的是 vivo文档 打开文件然后编辑的操作
-        // 自动化版本：用 root 权限直接在文件中 fonts/ 字符串后插入空格字节
-
-        String itzPath = RootUtils.exists(ITZ_DATA_PATH) ? ITZ_DATA_PATH : SDCARD_ITZ_PATH;
-
-        // 使用 python 精确操作 zip 内容
-        String script = buildPythonInsertScript(itzPath, "fonts/", " ");
-        RootUtils.CommandResult result = RootUtils.exec(script);
-
+    private boolean step9WriteVfont() {
+        callback.onStepStart(9, "写入 /data/vfonts 目标字体（Shizuku）");
+        String targetPath = VFONTS_DIR + VFONTS_TARGET_NAME;
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec(
+                "mkdir -p \"" + VFONTS_DIR + "\" && " +
+                "cp -f \"" + sourceFontPath + "\" \"" + targetPath + "\" && " +
+                "chmod 644 \"" + targetPath + "\"");
         if (!result.isSuccess()) {
-            callback.onStepFailed(2, "修改失败：" + result.stderr);
+            callback.onStepFailed(9, "写入 /data/vfonts 失败：" + result.stderr);
             return false;
         }
-
-        callback.onStepSuccess(2, "已在 fonts/ 后插入空格标记");
+        callback.onStepSuccess(9, "已写入 " + targetPath);
         return true;
     }
 
-    private boolean step_C_deleteIThemeFont() {
-        callback.onStepStart(3, "删除 i主题字体缓存（使密钥失效）");
+    private boolean step10PatchHmtx() {
+        callback.onStepStart(10, "修改 /data/vfonts 字体文件的 hmtx 后缀空格");
+        String remote = VFONTS_DIR + VFONTS_TARGET_NAME;
+        File localTemp = new File(context.getCacheDir(), "tmp_vfont_patch.ttf");
+        ShizukuUtils.CommandResult pull = ShizukuUtils.exec(
+                "cp -f \"" + remote + "\" \"" + localTemp.getAbsolutePath() + "\" && chmod 666 \"" + localTemp.getAbsolutePath() + "\"");
+        if (!pull.isSuccess()) {
+            callback.onStepFailed(10, "读取目标字体失败：" + pull.stderr);
+            return false;
+        }
 
-        // 删除 i主题字体目录下的缓存
-        String[] cmds = {
-                "rm -rf \"" + ITZ_DATA_PATH + "\"",
-                "rm -rf \"" + SDCARD_ITZ_PATH + "\""
-        };
-        RootUtils.CommandResult result = RootUtils.execCommands(cmds);
+        try {
+            if (!insertSpaceAfterFirstMarker(localTemp, "hmtx")) {
+                callback.onStepFailed(10, "未找到 hmtx 标记，无法补丁。");
+                return false;
+            }
+        } catch (IOException e) {
+            callback.onStepFailed(10, "本地补丁失败：" + e.getMessage());
+            return false;
+        }
 
+        ShizukuUtils.CommandResult push = ShizukuUtils.exec(
+                "cp -f \"" + localTemp.getAbsolutePath() + "\" \"" + remote + "\" && chmod 644 \"" + remote + "\"");
+        if (!push.isSuccess()) {
+            callback.onStepFailed(10, "回写字体失败：" + push.stderr);
+            return false;
+        }
+        callback.onStepSuccess(10, "hmtx 补丁完成");
+        return true;
+    }
+
+    private boolean step11OpenItzInDoc() {
+        callback.onStepStart(11, "拉起文档打开 /data/.../假黑体.itz");
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec(
+                "am start -a android.intent.action.VIEW " +
+                        "-d \"file://" + ITZ_DATA_PATH + "\" -t \"text/plain\"");
         if (!result.isSuccess()) {
-            callback.onStepFailed(3, "删除失败：" + result.stderr);
+            callback.onStepFailed(11, "打开 itz 失败：" + result.stderr);
             return false;
         }
-
-        // 广播通知 i主题刷新
-        RootUtils.exec("am broadcast -a com.bbk.theme.FONT_DELETED --user 0");
-
-        callback.onStepSuccess(3, "已清除旧 .itz 缓存");
+        callback.onStepSuccess(11, "已打开文档（如未自动打开，请手动切换到 vivo文档）");
         return true;
     }
 
-    private boolean step_D_saveVivoDoc() {
-        callback.onStepStart(4, "触发 vivo文档保存（生成新密钥）");
-
-        // 在 i主题 重新生成密钥需要 vivo文档的"保存"操作
-        // 自动化：打开 vivo文档的内部 Activity，并通过 root 修改目标文件触发密钥写入
-
-        // 实际上密钥生成的触发条件是：
-        // 当 i主题 检测到 .itz 不存在时会生成新的密钥文件
-        // 我们先检查 i主题的 dwd 目录
-        String dwd_dir = "/data/bbkcore/theme/.dwd/";
-        RootUtils.mkdir(dwd_dir + "c/o/m/b/b/k/t/h/e/m/e/F/");
-
-        // 用 touch 创建空 itz 占位，让 i主题识别并生成密钥
-        RootUtils.exec("touch \"" + ITZ_DATA_PATH + "\"");
-
-        sleep(500);
-
-        callback.onStepSuccess(4, "密钥生成触发完成");
-        return true;
-    }
-
-    private boolean step_E_redownloadFont() {
-        callback.onStepStart(5, "重新下载 i主题字体包");
-
-        // 通过 am start 跳转到 i主题字体下载页
-        String cmd = "am start -n " + ITHEME_PKG + "/.ui.activity.FontDetailActivity " +
-                "--es font_name '我是一个假黑体' --ei action 1";
-        RootUtils.CommandResult result = RootUtils.exec(cmd);
-
-        // 等待下载完成（最多等 30 秒）
-        int waitCount = 0;
-        while (!RootUtils.exists(ITZ_DATA_PATH) && waitCount < 30) {
-            sleep(1000);
-            waitCount++;
-            callback.onStepStart(5, "等待 i主题下载字体包..." + waitCount + "s");
-        }
-
-        if (!RootUtils.exists(ITZ_DATA_PATH)) {
-            callback.onStepFailed(5,
-                    "等待超时，未检测到下载完成的 .itz 包。\n" +
-                    "请在 i主题中手动搜索"我是一个假黑体"并下载，然后回来点击继续。");
-            return false;
-        }
-
-        callback.onStepSuccess(5, "字体包下载完成：" + ITZ_DATA_PATH);
-        return true;
-    }
-
-    private boolean step_F_injectFontIntoItz() {
-        callback.onStepStart(6, "将第三方字体注入 .itz 包（" + TARGET_FONT_NAME + "）");
-
-        // 确保目标 fonts 目录存在
-        RootUtils.mkdir(ITZ_FONTS_DIR);
-
-        // 复制第三方字体到 .itz/fonts/ 目录，并重命名
-        String destPath = ITZ_FONTS_DIR + TARGET_FONT_NAME;
-        boolean ok = RootUtils.copyFile(sourceFontPath, destPath);
-
-        if (!ok) {
-            callback.onStepFailed(6, "字体复制失败：\n从 " + sourceFontPath + "\n到 " + destPath);
-            return false;
-        }
-
-        // 设置权限
-        RootUtils.exec("chmod 644 \"" + destPath + "\"");
-
-        // 同时复制到 /data/vfonts/ 目录（步骤 12 对应）
-        RootUtils.mkdir(VFONTS_DIR);
-        RootUtils.copyFile(sourceFontPath, VFONTS_DIR + TARGET_FONT_NAME);
-        RootUtils.exec("chmod 644 \"" + VFONTS_DIR + TARGET_FONT_NAME + "\"");
-
-        callback.onStepSuccess(6, "字体已注入：\n" + destPath + "\n" + VFONTS_DIR + TARGET_FONT_NAME);
-        return true;
-    }
-
-    private boolean step_G_modifyVfontsHmtx() {
-        callback.onStepStart(7, "修改字体文件 hmtx 字段（触发 vivo 字体激活）");
-
-        String fontPath = VFONTS_DIR + TARGET_FONT_NAME;
-
-        // 在 hmtx 字符串后插入空格，让 vivo 文档识别为已修改
-        String script = buildPythonInsertScript(fontPath, "hmtx", " ");
-        RootUtils.CommandResult result = RootUtils.exec(script);
-
+    private boolean step12OpenVfontInDoc() {
+        callback.onStepStart(12, "拉起文档打开 /data/vfonts 目标字体");
+        ShizukuUtils.CommandResult result = ShizukuUtils.exec(
+                "am start -a android.intent.action.VIEW " +
+                        "-d \"file://" + VFONTS_DIR + VFONTS_TARGET_NAME + "\" -t \"text/plain\"");
         if (!result.isSuccess()) {
-            callback.onStepFailed(7, "hmtx 修改失败：" + result.stderr);
+            callback.onStepFailed(12, "打开 /data/vfonts 文件失败：" + result.stderr);
             return false;
         }
-
-        callback.onStepSuccess(7, "hmtx 字段已修改");
+        callback.onStepSuccess(12, "已打开 /data/vfonts 字体文件");
         return true;
     }
 
-    private boolean step_H_applyFont() {
-        callback.onStepStart(8, "应用字体（触发 i主题应用）");
-
-        // 先尝试恢复默认主题防止闪退
-        String[] cmds = {
-                // 重置主题到默认
-                "am broadcast -a com.bbk.theme.action.RESET_THEME --user 0",
-                // 应用字体
-                "am start -n " + ITHEME_PKG + "/.ui.activity.FontApplyActivity " +
-                        "--es font_path '" + VFONTS_DIR + TARGET_FONT_NAME + "'",
-        };
-
-        for (String cmd : cmds) {
-            RootUtils.exec(cmd);
-            sleep(1000);
+    private boolean step13OpenThemeForApply() {
+        callback.onStepStart(13, "再次拉起 i主题以便你直接应用字体");
+        if (!launchPackage(ITHEME_PKG)) {
+            callback.onStepFailed(13, "打开 i主题失败");
+            return false;
         }
-
-        callback.onStepSuccess(8, "已触发字体应用命令，等待 i主题处理...");
-        sleep(3000);
+        callback.onStepSuccess(13, "i主题已拉起，请直接应用字体");
         return true;
     }
 
-    private void step_I_reboot() {
-        callback.onStepStart(9, "重启手机（完成字体更换）");
-        sleep(2000);
+    private void step14Done() {
+        callback.onStepStart(14, "流程结束，请手动重启手机使字体完全生效");
+        callback.onStepSuccess(14, "操作完成");
         callback.onAllDone();
-
-        // 延迟 3 秒后重启，让用户看到完成提示
-        sleep(3000);
-        RootUtils.exec("reboot");
     }
 
-    // ──────────────────────────────────────────────────────────────
-    // 辅助方法
-    // ──────────────────────────────────────────────────────────────
+    private boolean prepareEmbeddedApks() {
+        File outputDir = new File(EMBEDDED_APK_OUTPUT_DIR);
+        if (!outputDir.exists() && !outputDir.mkdirs()) {
+            callback.onStepFailed(1, "无法创建内置安装包目录：\n" + EMBEDDED_APK_OUTPUT_DIR);
+            return false;
+        }
+
+        File iThemeApk = new File(outputDir, ITHEME_APK_FILE_NAME);
+        File vivoDocApk = new File(outputDir, VIVO_DOC_APK_FILE_NAME);
+        try {
+            copyAssetToFile(ITHEME_APK_ASSET, iThemeApk);
+            copyAssetToFile(VIVO_DOC_APK_ASSET, vivoDocApk);
+        } catch (IOException e) {
+            callback.onStepFailed(1, "释放内置安装包失败：" + e.getMessage());
+            return false;
+        }
+
+        iThemeApkPath = iThemeApk.getAbsolutePath();
+        vivoDocApkPath = vivoDocApk.getAbsolutePath();
+        return true;
+    }
+
+    private void copyAssetToFile(String assetPath, File targetFile) throws IOException {
+        try (InputStream in = context.getAssets().open(assetPath);
+             FileOutputStream out = new FileOutputStream(targetFile, false)) {
+            copyStream(in, out);
+            out.flush();
+        }
+    }
 
     private boolean isPackageInstalled(String pkgName) {
-        RootUtils.CommandResult result = RootUtils.exec(
-                "pm list packages | grep " + pkgName);
-        return result.stdout.contains(pkgName);
+        try {
+            context.getPackageManager().getPackageInfo(pkgName, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private boolean launchPackage(String pkgName) {
+        try {
+            Intent intent = context.getPackageManager().getLaunchIntentForPackage(pkgName);
+            if (intent == null) return false;
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            context.startActivity(intent);
+            return true;
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to launch package: " + pkgName, e);
+            return false;
+        }
     }
 
     private void openIThemeForDownload() {
-        try {
-            android.content.Intent intent = context.getPackageManager()
-                    .getLaunchIntentForPackage(ITHEME_PKG);
-            if (intent != null) {
-                intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-                context.startActivity(intent);
+        launchPackage(ITHEME_PKG);
+    }
+
+    private boolean replaceZipEntry(File zipFile, String targetEntryName, File replacementFile) throws IOException {
+        File tempFile = new File(context.getCacheDir(), "itz_tmp_" + System.currentTimeMillis() + ".itz");
+        byte[] replacementData = readAllBytes(new FileInputStream(replacementFile));
+        boolean replaced = false;
+
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(zipFile));
+             ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempFile))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                String entryName = entry.getName();
+                ZipEntry outEntry = new ZipEntry(entryName);
+                zos.putNextEntry(outEntry);
+                if (entryName.equals(targetEntryName)) {
+                    zos.write(replacementData);
+                    replaced = true;
+                } else {
+                    copyStream(zis, zos);
+                }
+                zos.closeEntry();
+                zis.closeEntry();
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to open i主题", e);
+
+            if (!replaced) {
+                ZipEntry newEntry = new ZipEntry(targetEntryName);
+                zos.putNextEntry(newEntry);
+                zos.write(replacementData);
+                zos.closeEntry();
+            }
+        }
+
+        File backup = new File(zipFile.getAbsolutePath() + ".bak");
+        if (backup.exists() && !backup.delete()) {
+            Log.w(TAG, "failed to delete old backup");
+        }
+        if (!zipFile.renameTo(backup)) {
+            throw new IOException("备份原始 itz 失败");
+        }
+        if (!tempFile.renameTo(zipFile)) {
+            if (!backup.renameTo(zipFile)) {
+                Log.e(TAG, "failed to restore original itz after rename failure");
+            }
+            throw new IOException("写入新 itz 失败");
+        }
+        if (backup.exists() && !backup.delete()) {
+            Log.w(TAG, "failed to cleanup itz backup");
+        }
+        return true;
+    }
+
+    private boolean insertSpaceAfterFirstMarker(File file, String marker) throws IOException {
+        byte[] data = readAllBytes(new FileInputStream(file));
+        byte[] markerBytes = marker.getBytes(StandardCharsets.UTF_8);
+        int idx = indexOf(data, markerBytes);
+        if (idx < 0) return false;
+
+        int insertPos = idx + markerBytes.length;
+        if (insertPos < data.length && data[insertPos] == 0x20) {
+            return true;
+        }
+
+        byte[] patched = new byte[data.length + 1];
+        System.arraycopy(data, 0, patched, 0, insertPos);
+        patched[insertPos] = 0x20;
+        System.arraycopy(data, insertPos, patched, insertPos + 1, data.length - insertPos);
+
+        try (FileOutputStream fos = new FileOutputStream(file, false)) {
+            fos.write(patched);
+        }
+        return true;
+    }
+
+    private int indexOf(byte[] source, byte[] target) {
+        outer:
+        for (int i = 0; i <= source.length - target.length; i++) {
+            for (int j = 0; j < target.length; j++) {
+                if (source[i + j] != target[j]) {
+                    continue outer;
+                }
+            }
+            return i;
+        }
+        return -1;
+    }
+
+    private void copyStream(InputStream in, OutputStream out) throws IOException {
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = in.read(buffer)) >= 0) {
+            out.write(buffer, 0, read);
         }
     }
 
-    private String buildPythonInsertScript(String filePath, String marker, String insert) {
-        return "python3 -c \"" +
-                "f=open('" + filePath + "','rb');" +
-                "d=f.read();" +
-                "f.close();" +
-                "m='" + marker + "'.encode();" +
-                "i=d.find(m);" +
-                "d=d[:i+len(m)]+'" + insert + "'.encode()+d[i+len(m):];" +
-                "f=open('" + filePath + "','wb');" +
-                "f.write(d);" +
-                "f.close();" +
-                "\"";
-    }
-
-    private void sleep(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException ignored) {}
+    private byte[] readAllBytes(InputStream input) throws IOException {
+        try (InputStream in = input; ByteArrayOutputStream bos = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = in.read(buffer)) >= 0) {
+                bos.write(buffer, 0, read);
+            }
+            return bos.toByteArray();
+        }
     }
 }

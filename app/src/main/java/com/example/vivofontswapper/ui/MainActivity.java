@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.provider.Settings;
 import android.view.View;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -62,7 +63,13 @@ public class MainActivity extends AppCompatActivity {
         setupRecyclerView();
         setupObservers();
         setupButtons();
-        updateFontSelectionUi(null);
+
+        String selectedFontPath = viewModel.getSelectedFontPath();
+        if (selectedFontPath == null) {
+            updateFontSelectionUi(null);
+        } else {
+            updateFontSelectionUi(getFileNameFromPath(selectedFontPath));
+        }
         requestPermissions();
     }
 
@@ -108,11 +115,44 @@ public class MainActivity extends AppCompatActivity {
             binding.tvFontStatus.setText("READY");
             binding.tvFontStatus.setBackgroundResource(R.drawable.pill_status_bg_ready);
             binding.tvFontHint.setText(fileName);
+            showStartButtonWithEnterAnimation();
         } else {
             binding.tvFontStatus.setText("NOT READY");
             binding.tvFontStatus.setBackgroundResource(R.drawable.pill_status_bg_not_ready);
             binding.tvFontHint.setText("请选择 .ttf 字体文件");
+            hideStartButton();
         }
+    }
+
+    private void showStartButtonWithEnterAnimation() {
+        if (binding.btnStart.getVisibility() == View.VISIBLE) {
+            return;
+        }
+
+        binding.btnStart.setVisibility(View.VISIBLE);
+        binding.btnStart.setAlpha(0f);
+        binding.btnStart.setTranslationY(120f);
+        binding.btnStart.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(260)
+                .setInterpolator(new DecelerateInterpolator())
+                .start();
+    }
+
+    private void hideStartButton() {
+        binding.btnStart.animate().cancel();
+        binding.btnStart.setAlpha(1f);
+        binding.btnStart.setTranslationY(0f);
+        binding.btnStart.setVisibility(View.GONE);
+    }
+
+    private String getFileNameFromPath(String path) {
+        int slashIndex = path.lastIndexOf('/');
+        if (slashIndex >= 0 && slashIndex < path.length() - 1) {
+            return path.substring(slashIndex + 1);
+        }
+        return path;
     }
 
     private boolean isSupportedFont(String path) {

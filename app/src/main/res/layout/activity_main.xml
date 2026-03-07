@@ -212,6 +212,7 @@
         android:padding="0dp"
         android:scaleType="center"
         android:src="@drawable/ic_play_triangle"
+        android:visibility="gone"
         app:tint="#FFFFFF" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

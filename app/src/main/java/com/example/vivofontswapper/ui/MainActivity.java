@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
                     if (realPath != null && (realPath.endsWith(".ttf") || realPath.endsWith(".otf"))) {
                         viewModel.setSelectedFontPath(realPath);
                         binding.btnStart.setEnabled(true);
-                        binding.tvFontName.setText("字体：" + realPath.substring(realPath.lastIndexOf('/') + 1));
+                        updateFontSelectionUi(realPath.substring(realPath.lastIndexOf('/') + 1));
                     } else {
                         Toast.makeText(this, "请选择 .ttf 或 .otf 字体文件", Toast.LENGTH_SHORT).show();
                     }
@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
         setupRecyclerView();
         setupObservers();
         setupButtons();
+        updateFontSelectionUi(null);
         requestPermissions();
     }
 
@@ -89,19 +90,27 @@ public class MainActivity extends AppCompatActivity {
 
         binding.btnStart.setEnabled(false);
         binding.btnStart.setOnClickListener(v -> startFontSwap());
-        binding.toolbar.setOnMenuItemClickListener(item -> {
-            int itemId = item.getItemId();
-            if (itemId == R.id.action_reset) {
-                viewModel.resetSteps();
-                binding.cardDone.setVisibility(View.GONE);
-                return true;
+        binding.btnReset.setOnClickListener(v -> {
+            viewModel.resetSteps();
+            binding.cardDone.setVisibility(View.GONE);
+            if (viewModel.getSelectedFontPath() == null) {
+                updateFontSelectionUi(null);
             }
-            if (itemId == R.id.action_help) {
-                showHelpDialog();
-                return true;
-            }
-            return false;
         });
+        binding.btnHelp.setOnClickListener(v -> showHelpDialog());
+    }
+
+    private void updateFontSelectionUi(String fileName) {
+        boolean hasFile = fileName != null && !fileName.isEmpty();
+        if (hasFile) {
+            binding.tvFontStatus.setText("READY");
+            binding.tvFontStatus.setBackgroundResource(R.drawable.pill_status_bg_ready);
+            binding.tvFontHint.setText(fileName);
+        } else {
+            binding.tvFontStatus.setText("NOT READY");
+            binding.tvFontStatus.setBackgroundResource(R.drawable.pill_status_bg_not_ready);
+            binding.tvFontHint.setText("请选择 .ttf/.otf 字体文件");
+        }
     }
 
     private void startFontSwap() {
